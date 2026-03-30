@@ -1,0 +1,63 @@
+services:
+  backend:
+    restart: always
+    build:
+      context: ./mbti-backend
+      dockerfile: Dockerfile
+    ports:
+      - "3003:3003"
+    environment:
+      - NODE_ENV=production
+      - PORT=3003
+      - MONGODB_URI=mongodb://mongo:27017/mbti_test
+      - NODE_OPTIONS=--max-old-space-size=512
+    depends_on:
+      mongo:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:3003/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - mbti-network
+
+  frontend:
+    restart: always
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - mbti-network
+
+  mongo:
+    restart: always
+    image: mongo:7.0
+    ports:
+      - "27017:27017"
+    volumes:
+      # 使用主机路径挂载，数据存储在当前目录的 mongo-data 文件夹中
+      - ./mongo-data:/data/db
+      - ./mongo-config:/data/configdb
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 30s
+      timeout: 15s
+      retries: 10
+      start_period: 60s
+    networks:
+      - mbti-network
+
+networks:
+  mbti-network:
+    driver: bridge

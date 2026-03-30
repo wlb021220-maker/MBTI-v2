@@ -1,0 +1,18 @@
+{
+  "name": "mbti-vue-app",
+  "version": "1.0.0",
+  "description": "MBTI人格类型测试系统 - Vue 3版本",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "vue": "^3.4.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^4.5.0",
+    "vite": "^5.0.0"
+  }
+}
