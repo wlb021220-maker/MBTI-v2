@@ -113,7 +113,16 @@ class ApiService {
                 body: JSON.stringify({ username, password })
             })
 
-            const result = await response.json()
+            // 先读取文本，再尝试解析 JSON
+            const responseText = await response.text()
+            let result
+            try {
+                result = JSON.parse(responseText)
+            } catch (e) {
+                console.error('响应不是有效的JSON:', responseText)
+                throw new Error('服务器响应格式错误，请检查后端服务是否正常运行')
+            }
+
             console.log('登录响应:', result)
 
             if (!response.ok) {
@@ -184,7 +193,15 @@ class ApiService {
             }
         })
 
-        const result = await response.json()
+        // 先读取文本，再尝试解析 JSON
+        const responseText = await response.text()
+        let result
+        try {
+            result = JSON.parse(responseText)
+        } catch (e) {
+            console.error('响应不是有效的JSON:', responseText)
+            throw new Error('服务器响应格式错误，请检查后端服务是否正常运行')
+        }
 
         if (!response.ok) {
             // 如果返回401，可能是token过期
@@ -222,7 +239,15 @@ class ApiService {
                 }
             })
 
-            const result = await response.json()
+            // 先读取文本，再尝试解析 JSON
+            const responseText = await response.text()
+            let result
+            try {
+                result = JSON.parse(responseText)
+            } catch (e) {
+                console.error('响应不是有效的JSON:', responseText)
+                throw new Error('服务器响应格式错误，请检查后端服务是否正常运行')
+            }
 
             if (!response.ok) {
                 throw new Error(result.message || '获取统计数据失败')
@@ -255,7 +280,14 @@ class ApiService {
             })
 
             if (!response.ok) {
-                const error = await response.json()
+                // 先读取文本，再尝试解析 JSON
+                const errorText = await response.text()
+                let error
+                try {
+                    error = JSON.parse(errorText)
+                } catch (e) {
+                    throw new Error('导出数据失败，服务器响应格式错误')
+                }
                 throw new Error(error.message || '导出数据失败')
             }
 
@@ -305,7 +337,15 @@ class ApiService {
                 return { success: false, user: null }
             }
 
-            const result = await response.json()
+            // 先读取文本，再尝试解析 JSON
+            const responseText = await response.text()
+            let result
+            try {
+                result = JSON.parse(responseText)
+            } catch (e) {
+                console.error('响应不是有效的JSON:', responseText)
+                return { success: false, user: null }
+            }
             return result
         } catch (error) {
             console.error('获取用户信息时出错:', error)
@@ -375,7 +415,15 @@ class ApiService {
                 })
             })
 
-            const result = await response.json()
+            // 先读取文本，再尝试解析 JSON
+            const responseText = await response.text()
+            let result
+            try {
+                result = JSON.parse(responseText)
+            } catch (e) {
+                console.error('响应不是有效的JSON:', responseText)
+                throw new Error('服务器响应格式错误，请检查后端服务是否正常运行')
+            }
 
             if (!response.ok) {
                 throw new Error(result.message || '更新状态失败')
@@ -409,7 +457,15 @@ class ApiService {
                 }
             })
 
-            const result = await response.json()
+            // 先读取文本，再尝试解析 JSON
+            const responseText = await response.text()
+            let result
+            try {
+                result = JSON.parse(responseText)
+            } catch (e) {
+                console.error('响应不是有效的JSON:', responseText)
+                throw new Error('服务器响应格式错误，请检查后端服务是否正常运行')
+            }
 
             if (!response.ok) {
                 throw new Error(result.message || '删除失败')
@@ -444,7 +500,15 @@ class ApiService {
                 body: JSON.stringify({ ids })
             })
 
-            const result = await response.json()
+            // 先读取文本，再尝试解析 JSON
+            const responseText = await response.text()
+            let result
+            try {
+                result = JSON.parse(responseText)
+            } catch (e) {
+                console.error('响应不是有效的JSON:', responseText)
+                throw new Error('服务器响应格式错误，请检查后端服务是否正常运行')
+            }
 
             if (!response.ok) {
                 throw new Error(result.message || '批量删除失败')
@@ -480,7 +544,15 @@ class ApiService {
                 body: JSON.stringify({ ids, status })
             })
 
-            const result = await response.json()
+            // 先读取文本，再尝试解析 JSON
+            const responseText = await response.text()
+            let result
+            try {
+                result = JSON.parse(responseText)
+            } catch (e) {
+                console.error('响应不是有效的JSON:', responseText)
+                throw new Error('服务器响应格式错误，请检查后端服务是否正常运行')
+            }
 
             if (!response.ok) {
                 throw new Error(result.message || '批量更新状态失败')
@@ -516,7 +588,15 @@ class ApiService {
                 body: JSON.stringify({ english_name: englishName })
             })
 
-            const result = await response.json()
+            // 先读取文本，再尝试解析 JSON
+            const responseText = await response.text()
+            let result
+            try {
+                result = JSON.parse(responseText)
+            } catch (e) {
+                console.error('响应不是有效的JSON:', responseText)
+                throw new Error('服务器响应格式错误，请检查后端服务是否正常运行')
+            }
 
             if (!response.ok) {
                 throw new Error(result.message || '更新英文名字失败')
@@ -551,7 +631,15 @@ class ApiService {
                 body: JSON.stringify(data)
             })
 
-            const result = await response.json()
+            // 先读取文本，再尝试解析 JSON
+            const responseText = await response.text()
+            let result
+            try {
+                result = JSON.parse(responseText)
+            } catch (e) {
+                console.error('响应不是有效的JSON:', responseText)
+                throw new Error('服务器响应格式错误，请检查后端服务是否正常运行')
+            }
 
             if (!response.ok) {
                 throw new Error(result.message || '上传数据失败')
@@ -589,7 +677,15 @@ class ApiService {
                 body: JSON.stringify(adminData)
             })
 
-            const result = await response.json()
+            // 先读取文本，再尝试解析 JSON
+            const responseText = await response.text()
+            let result
+            try {
+                result = JSON.parse(responseText)
+            } catch (e) {
+                console.error('响应不是有效的JSON:', responseText)
+                throw new Error('服务器响应格式错误，请检查后端服务是否正常运行')
+            }
 
             if (!response.ok) {
                 throw new Error(result.message || '创建管理员账户失败')
@@ -626,7 +722,15 @@ class ApiService {
                 body: JSON.stringify(passwordData)
             })
 
-            const result = await response.json()
+            // 先读取文本，再尝试解析 JSON
+            const responseText = await response.text()
+            let result
+            try {
+                result = JSON.parse(responseText)
+            } catch (e) {
+                console.error('响应不是有效的JSON:', responseText)
+                throw new Error('服务器响应格式错误，请检查后端服务是否正常运行')
+            }
 
             if (!response.ok) {
                 throw new Error(result.message || '修改密码失败')
@@ -661,7 +765,15 @@ class ApiService {
                 body: JSON.stringify(jsonData)
             })
 
-            const result = await response.json()
+            // 先读取文本，再尝试解析 JSON
+            const responseText = await response.text()
+            let result
+            try {
+                result = JSON.parse(responseText)
+            } catch (e) {
+                console.error('响应不是有效的JSON:', responseText)
+                throw new Error('服务器响应格式错误，请检查后端服务是否正常运行')
+            }
 
             if (!response.ok) {
                 throw new Error(result.message || '上传JSON文件失败')

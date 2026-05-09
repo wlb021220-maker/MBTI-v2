@@ -10,7 +10,7 @@ router.post('/submit-test', resultController.submitTest);
 router.get('/admin/results', auth, resultController.getResults);
 router.get('/admin/results/:id', auth, resultController.getResultDetail);
 router.get('/admin/statistics', auth, resultController.getStatistics);
-router.get('/admin/export/csv', auth, resultController.exportToCSV);
+router.get('/admin/export/csv', auth, resultController.exportCSV);
 router.post('/admin/results/upload', auth, resultController.uploadTestData);
 router.post('/admin/results/upload-json', auth, resultController.uploadJsonFile);
 

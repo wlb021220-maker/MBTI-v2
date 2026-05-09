@@ -124,6 +124,7 @@ try {
     console.log('✅ 路由加载成功');
 } catch (error) {
     console.error('❌ 路由加载失败:', error.message);
+    console.error('错误堆栈:', error.stack);
 }
 
 // 404处理

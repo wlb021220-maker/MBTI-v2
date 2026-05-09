@@ -125,7 +125,10 @@ exports.getResults = async (req, res) => {
 
         res.json({
             success: true,
-            data: results,
+            data: {
+                results: results,
+                total: total
+            },
             pagination: {
                 page: parseInt(page),
                 limit: parseInt(limit),
@@ -811,6 +814,136 @@ exports.batchPushToWeCom = async (req, res) => {
         res.status(500).json({
             success: false,
             message: '批量推送失败',
+            error: error.message
+        });
+    }
+};
+
+// 获取单个测试结果详情
+exports.getResultDetail = async (req, res) => {
+    try {
+        const result = await Result.findById(req.params.id);
+        
+        if (!result) {
+            return res.status(404).json({
+                success: false,
+                message: '未找到该测试结果'
+            });
+        }
+        
+        res.json({
+            success: true,
+            data: result
+        });
+    } catch (error) {
+        console.error('获取测试结果详情错误:', error);
+        res.status(500).json({
+            success: false,
+            message: '获取数据失败',
+            error: error.message
+        });
+    }
+};
+
+// 更新测试结果状态
+exports.updateStatus = async (req, res) => {
+    try {
+        const { status, review_notes, notify_user } = req.body;
+        
+        const validStatuses = ['pending', 'processed', 'rejected', 'archived'];
+        if (!validStatuses.includes(status)) {
+            return res.status(400).json({
+                success: false,
+                message: `状态值无效，有效值: ${validStatuses.join(', ')}`
+            });
+        }
+        
+        const result = await Result.findByIdAndUpdate(
+            req.params.id,
+            {
+                $set: {
+                    status,
+                    review_notes,
+                    reviewed_by: req.user?.username || 'admin',
+                    reviewed_at: new Date()
+                }
+            },
+            { new: true }
+        );
+        
+        if (!result) {
+            return res.status(404).json({
+                success: false,
+                message: '未找到该测试结果'
+            });
+        }
+        
+        res.json({
+            success: true,
+            message: '状态更新成功',
+            data: result
+        });
+    } catch (error) {
+        console.error('更新状态错误:', error);
+        res.status(500).json({
+            success: false,
+            message: '更新失败',
+            error: error.message
+        });
+    }
+};
+
+// 删除单个测试结果
+exports.deleteResult = async (req, res) => {
+    try {
+        const result = await Result.findByIdAndDelete(req.params.id);
+        
+        if (!result) {
+            return res.status(404).json({
+                success: false,
+                message: '未找到该测试结果'
+            });
+        }
+        
+        res.json({
+            success: true,
+            message: '删除成功',
+            data: { id: req.params.id }
+        });
+    } catch (error) {
+        console.error('删除结果错误:', error);
+        res.status(500).json({
+            success: false,
+            message: '删除失败',
+            error: error.message
+        });
+    }
+};
+
+// 批量删除测试结果
+exports.batchDeleteResults = async (req, res) => {
+    try {
+        const { ids } = req.body;
+        
+        if (!Array.isArray(ids) || ids.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: '请提供要删除的结果ID数组'
+            });
+        }
+        
+        const deleteResult = await Result.deleteMany({ _id: { $in: ids } });
+        
+        res.json({
+            success: true,
+            message: `成功删除 ${deleteResult.deletedCount} 条测试结果`,
+            deletedCount: deleteResult.deletedCount
+        });
+    } catch (error) {
+        console.error('批量删除错误:', error);
+        res.status(500).json({
+            success: false,
+            message: '批量删除失败',
             error: error.message
         });
     }

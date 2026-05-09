@@ -1537,7 +1537,7 @@ const processResultData = (result) => {
 
     // 构建统一的数据结构
     const processedResult = {
-        id: result.id,
+        id: result.id || result._id,
         test_id: result.test_id,
         email: email,
         name: name,
