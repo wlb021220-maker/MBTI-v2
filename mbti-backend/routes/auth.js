@@ -15,4 +15,7 @@ router.post('/admin/create', auth, authController.createNewAdmin);
 // 修改密码
 router.post('/admin/change-password', auth, authController.changePassword);
 
+// 批量导入管理员（从JSON文件）
+router.post('/admin/import-users', auth, authController.importUsersFromJson);
+
 module.exports = router;

@@ -13,19 +13,6 @@
 },
 {
   "_id": {
-    "$oid": "6982a57e676fdcace264208d"
-  },
-  "username": "stella",
-  "password": "$2a$10$kvSlADlL1O0TsIaPTvJ.XeFxc.yKbbYC4yn8qGuxG62fv1cejSGai",
-  "role": "admin",
-  "displayName": "Stella",
-  "createdAt": {
-    "$date": "2026-02-04T01:48:46.582Z"
-  },
-  "__v": 0
-},
-{
-  "_id": {
     "$oid": "6982a57e676fdcace2642090"
   },
   "username": "allen",
@@ -39,14 +26,14 @@
 },
 {
   "_id": {
-    "$oid": "6982a57e676fdcace2642093"
+    "$oid": "6982a57e676fdcace2642091"
   },
-  "username": "vivian",
-  "password": "$2a$10$4s3.K7BmhEp20g2nkyDMee72D8kfFkbWuIxPprCaouKubk1hbA3Ei",
+  "username": "yuna",
+  "password": "yuna@zzy123",
   "role": "admin",
-  "displayName": "Vivian",
+  "displayName": "Yuna",
   "createdAt": {
-    "$date": "2026-02-04T01:48:46.902Z"
+    "$date": "2026-05-13T00:00:00.000Z"
   },
   "__v": 0
 }]

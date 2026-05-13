@@ -478,7 +478,7 @@ exports.uploadTestData = async (req, res) => {
     }
 };
 
-// 上传单个JSON文件并导入
+// 上传单个JSON文件并导入（支持批量导入）
 exports.uploadJsonFile = async (req, res) => {
     try {
         console.log('开始处理JSON文件上传...');
@@ -503,120 +503,188 @@ exports.uploadJsonFile = async (req, res) => {
             console.log('请求体长度:', bodyLength);
         } catch (stringifyError) {
             console.error('请求体序列化失败:', stringifyError);
-            // 继续执行，不因为序列化失败而中断
         }
         
-        const jsonData = req.body;
+        let jsonData = req.body;
+        
+        // 判断是单条数据还是数组
+        let dataArray = [];
+        if (Array.isArray(jsonData)) {
+            dataArray = jsonData;
+            console.log(`检测到数组格式，包含 ${dataArray.length} 条数据`);
+        } else {
+            dataArray = [jsonData];
+            console.log('检测到单条数据格式');
+        }
         
         // 数据清洗：处理 dirty data
-        if (Array.isArray(jsonData)) {
-            jsonData.forEach(item => {
-                // 如果 user_info 存在，且 age 是 "未提供"，强制改成 null
-                if (item.user_info && item.user_info.age === "未提供") {
-                    item.user_info.age = null;
+        dataArray.forEach(item => {
+            if (item.user_info && item.user_info.age === "未提供") {
+                item.user_info.age = null;
+            }
+        });
+        
+        // 处理候选类型映射
+        const mapCandidateType = (type) => {
+            if (type === 'intern') {
+                return 'interview';
+            }
+            const validTypes = ['interview', 'employee', 'former'];
+            return validTypes.includes(type) ? type : 'interview';
+        };
+        
+        // 处理百分比值转换
+        const processDimensionScores = (scores) => {
+            if (!Array.isArray(scores)) return [];
+            return scores.map(item => {
+                let percentage = item['百分比'] || item.percentage || 0;
+                if (typeof percentage === 'string') {
+                    percentage = parseFloat(percentage.replace(/[^\d.]/g, '')) || 0;
                 }
+                
+                let score = item['得分'] || item.score || 0;
+                if (typeof score === 'string') {
+                    score = parseFloat(score) || 0;
+                }
+                
+                return {
+                    dimension: item['维度'] || item.dimension,
+                    score: score,
+                    percentage: percentage
+                };
             });
-        }
+        };
         
-        // 生成唯一testId
-        const testId = `MBTI-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-        console.log('生成的testId:', testId);
-        
-        // 转换数据格式
-        let transformedData;
-        try {
-            console.log('开始转换数据格式...');
-            
-            // 处理候选人类型
-            let candidateType = jsonData['候选人类型'] || jsonData['candidate_type'];
-            if (!candidateType) {
-                // 根据求职类型判断
-                const employmentType = jsonData['用户信息']?.['求职类型'] || jsonData['求职类型'];
-                if (employmentType === '实习' || employmentType === '全职' || employmentType === '兼职') {
-                    candidateType = 'interview';
+        // 转换单条数据的函数
+        const transformSingleData = (item, index) => {
+            try {
+                const testId = `MBTI-${Date.now()}-${index}-${Math.random().toString(36).substr(2, 9)}`;
+                
+                // 处理候选人类型
+                let candidateType = item['候选人类型'] || item['candidate_type'] || item.candidate_type;
+                if (!candidateType) {
+                    const employmentType = item['用户信息']?.['求职类型'] || item['求职类型'] || 
+                                          item.user_info?.employment || item.employment;
+                    if (employmentType === '实习' || employmentType === '全职' || employmentType === '兼职') {
+                        candidateType = 'interview';
+                    } else {
+                        candidateType = 'interview';
+                    }
+                }
+                
+                // 处理投递部门/目的
+                let purpose = item['用户信息']?.['投递部门'] || item['投递部门'] || 
+                             item.user_info?.purpose || item.purpose || '';
+                if (!purpose) {
+                    purpose = item['用户信息']?.['部门'] || item['部门'] || 
+                             item.user_info?.department || item.department || '';
+                }
+                
+                // 处理提交时间
+                let submissionTime;
+                if (item.submission_time) {
+                    if (item.submission_time.$date) {
+                        submissionTime = new Date(item.submission_time.$date);
+                    } else {
+                        submissionTime = new Date(item.submission_time);
+                    }
+                } else if (item['测试信息']?.['提交时间']) {
+                    submissionTime = new Date(item['测试信息']['提交时间']);
                 } else {
-                    candidateType = 'interview';
+                    submissionTime = new Date();
                 }
-            }
-            
-            // 处理投递部门/目的
-            let purpose = jsonData['用户信息']?.['投递部门'] || jsonData['投递部门'] || '';
-            if (!purpose) {
-                purpose = jsonData['用户信息']?.['部门'] || jsonData['部门'] || '';
-            }
-            
-            // 处理候选类型映射
-            const mapCandidateType = (type) => {
-                // 将 'intern' 映射到 'interview'
-                if (type === 'intern') {
-                    return 'interview';
+                
+                // 处理元数据中的提交时间
+                let metadataSubmissionTime;
+                if (item.metadata?.submission_time) {
+                    if (item.metadata.submission_time.$date) {
+                        metadataSubmissionTime = new Date(item.metadata.submission_time.$date);
+                    } else {
+                        metadataSubmissionTime = new Date(item.metadata.submission_time);
+                    }
+                } else {
+                    metadataSubmissionTime = submissionTime;
                 }
-                const validTypes = ['interview', 'employee', 'former'];
-                return validTypes.includes(type) ? type : 'interview';
-            };
-            
-            // 处理百分比值转换
-            const processDimensionScores = (scores) => {
-                if (!Array.isArray(scores)) return [];
-                return scores.map(item => {
-                    let percentage = item['百分比'] || 0;
-                    // 处理字符串格式的百分比，如 "20%"
-                    if (typeof percentage === 'string') {
-                        percentage = parseFloat(percentage.replace(/[^\d.]/g, '')) || 0;
-                    }
-                    
-                    let score = item['得分'] || 0;
-                    // 确保得分是数字类型
-                    if (typeof score === 'string') {
-                        score = parseFloat(score) || 0;
-                    }
-                    
-                    return {
-                        dimension: item['维度'],
-                        score: score,
-                        percentage: percentage
-                    };
-                });
-            };
-            
-            transformedData = {
-                user_info: {
-                    name: jsonData['用户信息']?.['姓名'] || jsonData['姓名'] || '未知',
-                    age: jsonData['用户信息']?.['年龄'] || jsonData['年龄'],
-                    gender: jsonData['用户信息']?.['性别'] || jsonData['性别'],
-                    email: jsonData['用户信息']?.['邮箱'] || jsonData['邮箱'] || '',
-                    employment: jsonData['用户信息']?.['求职类型'] || jsonData['求职类型'],
-                    purpose: purpose,
-                    education: jsonData['用户信息']?.['学历'] || jsonData['学历'],
-                    organization: jsonData['用户信息']?.['毕业院校'] || jsonData['毕业院校'],
-                    region: jsonData['用户信息']?.['所在地区'] || jsonData['所在地区'],
-                    comments: jsonData['用户信息']?.['用户备注'] || jsonData['用户备注']
-                },
-                candidate_type: mapCandidateType(candidateType),
-                test_results: {
-                    mbti_type: jsonData['测试信息']?.['MBTI类型'] || jsonData['MBTI类型'] || '未知',
-                    dimension_scores: processDimensionScores(jsonData['维度得分']),
-                    answers: jsonData['答题详情']?.map(item => ({
-                        question_id: item['题号'],
-                        question: item['问题'],
-                        selected_option: item['用户选择'] || item['answer'],
-                        score: item['得分'] || item['score'] || ''
-                    })) || [],
-                    test_duration: jsonData['测试信息']?.['测试时长'] || 0,
-                    test_id: testId
-                },
-                metadata: {
-                    test_version: jsonData['元数据']?.['测试版本'],
-                    platform: jsonData['元数据']?.['测试平台'],
-                    ip_address: jsonData['元数据']?.['IP地址'],
-                    user_agent: jsonData['元数据']?.['设备信息'],
-                    submission_time: jsonData['测试信息']?.['提交时间']
-                },
-                submission_time: new Date(jsonData['测试信息']?.['提交时间'] || Date.now()),
-                status: jsonData['审核信息']?.['当前状态'] || jsonData['状态'] || 'pending'
-            };
-            console.log('数据格式转换完成');
-            console.log('转换后的数据结构:', JSON.stringify(transformedData, null, 2));
+                
+                return {
+                    user_info: {
+                        name: item['用户信息']?.['姓名'] || item['姓名'] || 
+                              item.user_info?.name || item.name || '未知',
+                        english_name: item['用户信息']?.['英文名'] || item['英文名'] || 
+                                     item.user_info?.english_name || item.english_name || '',
+                        age: item['用户信息']?.['年龄'] || item['年龄'] || 
+                             item.user_info?.age || item.age || null,
+                        gender: item['用户信息']?.['性别'] || item['性别'] || 
+                                item.user_info?.gender || item.gender || '',
+                        email: item['用户信息']?.['邮箱'] || item['邮箱'] || 
+                               item.user_info?.email || item.email || '',
+                        employment: item['用户信息']?.['求职类型'] || item['求职类型'] || 
+                                   item.user_info?.employment || item.employment || '',
+                        purpose: purpose,
+                        education: item['用户信息']?.['学历'] || item['学历'] || 
+                                  item.user_info?.education || item.education || '',
+                        organization: item['用户信息']?.['毕业院校'] || item['毕业院校'] || 
+                                     item.user_info?.organization || item.organization || 
+                                     item['用户信息']?.['组织'] || item['组织'] || '',
+                        region: item['用户信息']?.['所在地区'] || item['所在地区'] || 
+                                item.user_info?.region || item.region || '',
+                        comments: item['用户信息']?.['用户备注'] || item['用户备注'] || 
+                                 item.user_info?.comments || item.comments || ''
+                    },
+                    candidate_type: mapCandidateType(candidateType),
+                    test_results: {
+                        mbti_type: item['测试信息']?.['MBTI类型'] || item['MBTI类型'] || 
+                                  item.test_results?.mbti_type || item.mbti_type || '未知',
+                        dimension_scores: processDimensionScores(
+                            item['维度得分'] || item.test_results?.dimension_scores || 
+                            item.dimension_scores || []
+                        ),
+                        answers: (item['答题详情'] || item.test_results?.answers || 
+                                 item.answers || []).map(ans => ({
+                            question_id: ans['题号'] || ans.question_id,
+                            question: ans['问题'] || ans.question,
+                            selected_option: ans['用户选择'] || ans['answer'] || 
+                                            ans.selected_option || ans.answer || '',
+                            score: ans['得分'] || ans['score'] || ans.score || ''
+                        })),
+                        test_duration: item['测试信息']?.['测试时长'] || item['测试时长'] || 
+                                      item.test_results?.test_duration || item.test_duration || 0,
+                        test_id: item.test_results?.test_id || item.test_id || testId
+                    },
+                    metadata: {
+                        test_version: item['元数据']?.['测试版本'] || item['测试版本'] || 
+                                     item.metadata?.test_version || item.test_version || '2.0',
+                        platform: item['元数据']?.['测试平台'] || item['测试平台'] || 
+                                 item.metadata?.platform || item.platform || 'web',
+                        ip_address: item['元数据']?.['IP地址'] || item['IP地址'] || 
+                                   item.metadata?.ip_address || item.ip_address || '',
+                        user_agent: item['元数据']?.['设备信息'] || item['设备信息'] || 
+                                   item.metadata?.user_agent || item.user_agent || '',
+                        screen_resolution: item.metadata?.screen_resolution || '',
+                        submission_time: metadataSubmissionTime
+                    },
+                    submission_time: submissionTime,
+                    status: item['审核信息']?.['当前状态'] || item['状态'] || 
+                           item.status || 'pending',
+                    review_notes: item.review_notes || '',
+                    reviewed_by: item.reviewed_by || null,
+                    reviewed_at: item.reviewed_at || null
+                };
+            } catch (error) {
+                console.error(`转换第 ${index + 1} 条数据失败:`, error);
+                throw error;
+            }
+        };
+        
+        // 批量转换数据
+        console.log('开始转换数据格式...');
+        let transformedDataArray = [];
+        try {
+            transformedDataArray = dataArray.map((item, index) => {
+                console.log(`转换第 ${index + 1}/${dataArray.length} 条数据...`);
+                return transformSingleData(item, index);
+            });
+            console.log(`成功转换 ${transformedDataArray.length} 条数据`);
         } catch (transformError) {
             console.error('数据格式转换失败:', transformError);
             return res.status(400).json({
@@ -625,30 +693,43 @@ exports.uploadJsonFile = async (req, res) => {
                 error: transformError.message
             });
         }
-
-        // 创建新记录
-        console.log('开始创建新记录...');
-        let newResult;
+        
+        // 批量保存到数据库
+        console.log('开始批量保存到数据库...');
+        let savedResults = [];
+        let failedCount = 0;
+        
         try {
-            newResult = new Result(transformedData);
-            console.log('保存记录到数据库...');
-            await newResult.save();
-            console.log('记录保存成功:', newResult._id);
-        } catch (saveError) {
-            console.error('数据库保存失败:', saveError);
-            return res.status(400).json({
-                success: false,
-                message: '数据库保存失败',
-                error: saveError.message
+            // 使用 insertMany 批量插入，性能更好
+            savedResults = await Result.insertMany(transformedDataArray, { 
+                ordered: false  // 即使某条失败，也继续插入其他
             });
+            console.log(`成功保存 ${savedResults.length} 条记录`);
+        } catch (insertError) {
+            // 如果有部分插入失败
+            if (insertError.writeErrors) {
+                failedCount = insertError.writeErrors.length;
+                savedResults = insertError.insertedDocs || [];
+                console.error(`${failedCount} 条记录插入失败`);
+            } else {
+                console.error('数据库保存失败:', insertError);
+                return res.status(400).json({
+                    success: false,
+                    message: '数据库保存失败',
+                    error: insertError.message
+                });
+            }
         }
-
+        
         res.status(201).json({
             success: true,
-            message: 'JSON文件导入成功',
-            testId: testId,
-            resultId: newResult._id
+            message: `JSON文件导入成功，共导入 ${savedResults.length} 条记录`,
+            importedCount: savedResults.length,
+            failedCount: failedCount,
+            totalCount: dataArray.length,
+            resultIds: savedResults.map(r => r._id)
         });
+        
     } catch (error) {
         console.error('JSON文件导入失败:', error);
         console.error('错误堆栈:', error.stack);

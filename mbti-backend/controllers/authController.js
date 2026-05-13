@@ -235,3 +235,193 @@ exports.changePassword = async (req, res) => {
         });
     }
 };
+
+// 从JSON文件批量导入管理员
+exports.importUsersFromJson = async (req, res) => {
+    try {
+        console.log('开始批量导入管理员...');
+        console.log('请求体类型:', typeof req.body);
+        console.log('请求体内容预览:', JSON.stringify(req.body).substring(0, 200));
+        
+        // 检查请求体
+        if (!req.body || Object.keys(req.body).length === 0) {
+            console.error('请求体为空');
+            return res.status(400).json({
+                success: false,
+                message: '请求体为空，请上传有效的JSON数据'
+            });
+        }
+        
+        let jsonData = req.body;
+        
+        // 判断是单条数据还是数组
+        let dataArray = [];
+        if (Array.isArray(jsonData)) {
+            dataArray = jsonData;
+            console.log(`检测到数组格式，包含 ${dataArray.length} 条管理员数据`);
+        } else {
+            dataArray = [jsonData];
+            console.log('检测到单条数据格式');
+        }
+        
+        // 转换和验证数据
+        const transformedData = [];
+        const errors = [];
+        const existingUsernames = [];  // 记录已存在的用户名
+        const skippedUsers = [];       // 记录被跳过的用户
+        
+        for (let i = 0; i < dataArray.length; i++) {
+            const item = dataArray[i];
+            console.log(`处理第 ${i + 1} 条数据:`, JSON.stringify(item).substring(0, 100));
+            
+            try {
+                // 提取用户名（支持多种字段名）
+                const username = item.username || item['用户名'];
+                console.log(`  提取用户名: ${username}`);
+                
+                if (!username) {
+                    errors.push(`第 ${i + 1} 条数据缺少用户名`);
+                    console.log(`  ❌ 缺少用户名，跳过`);
+                    continue;
+                }
+                
+                // 提取密码（支持多种字段名）
+                let password = item.password || item['密码'];
+                // 如果没有密码但有明文密码字段，使用明文密码
+                if (!password && item['明文密码']) {
+                    password = item['明文密码'];
+                }
+                // 如果没有密码，生成默认密码
+                if (!password) {
+                    password = username + '@123456';
+                    console.log(`  ⚠️ 使用默认密码: ${password}`);
+                } else {
+                    console.log(`  ✅ 使用提供的密码`);
+                }
+                
+                // 提取显示名称（支持多种字段名）
+                const displayName = item.displayName || item['显示名称'] || item.display_name || username;
+                console.log(`  显示名称: ${displayName}`);
+                
+                // 提取角色（默认为 admin）
+                const role = item.role || item['角色'] || 'admin';
+                
+                // 检查用户名是否已存在
+                const existingUser = await User.findOne({ username });
+                if (existingUser) {
+                    console.log(`  ⚠️ 用户名 ${username} 已存在，跳过`);
+                    existingUsernames.push(username);
+                    skippedUsers.push({ username, displayName, reason: '已存在' });
+                    continue;
+                }
+                
+                // 处理创建时间（支持 MongoDB $date 格式）
+                let createdAt = new Date();
+                if (item.createdAt) {
+                    if (item.createdAt.$date) {
+                        createdAt = new Date(item.createdAt.$date);
+                    } else {
+                        createdAt = new Date(item.createdAt);
+                    }
+                }
+                
+                transformedData.push({
+                    username,
+                    password,
+                    displayName,
+                    role,
+                    createdAt
+                });
+                console.log(`  ✅ 第 ${i + 1} 条数据验证通过`);
+            } catch (error) {
+                errors.push(`第 ${i + 1} 条数据处理失败: ${error.message}`);
+                console.error(`  ❌ 处理失败:`, error.message);
+            }
+        }
+        
+        console.log(`验证完成，准备导入 ${transformedData.length} 条数据，跳过/失败 ${dataArray.length - transformedData.length} 条`);
+        
+        // 如果没有新数据可导入，返回清晰的反馈
+        if (transformedData.length === 0) {
+            let message = '没有有效的管理员数据可导入';
+            
+            // 根据情况提供更具体的反馈
+            if (existingUsernames.length > 0 && errors.length === 0) {
+                message = `所有管理员账户已存在，无需导入。已存在的账户：${existingUsernames.join(', ')}`;
+            } else if (existingUsernames.length > 0 && errors.length > 0) {
+                message = `部分账户已存在，部分数据格式错误。已存在的账户：${existingUsernames.join(', ')}`;
+            } else if (errors.length > 0) {
+                message = '数据格式错误，请检查JSON文件格式';
+            }
+            
+            console.log(message);
+            return res.status(400).json({
+                success: false,
+                message: message,
+                details: {
+                    totalReceived: dataArray.length,
+                    existingCount: existingUsernames.length,
+                    errorCount: errors.length,
+                    existingUsernames: existingUsernames,
+                    errors: errors,
+                    skippedUsers: skippedUsers
+                }
+            });
+        }
+        
+        console.log(`准备导入 ${transformedData.length} 条管理员数据`);
+        
+        // 批量插入数据
+        let savedUsers = [];
+        let failedCount = 0;
+        
+        try {
+            savedUsers = await User.insertMany(transformedData, {
+                ordered: false  // 即使某条失败，也继续插入其他
+            });
+            console.log(`成功导入 ${savedUsers.length} 个管理员账户`);
+        } catch (insertError) {
+            if (insertError.writeErrors) {
+                failedCount = insertError.writeErrors.length;
+                savedUsers = insertError.insertedDocs || [];
+                console.error(`${failedCount} 条记录插入失败`);
+            } else {
+                console.error('数据库保存失败:', insertError);
+                return res.status(400).json({
+                    success: false,
+                    message: '数据库保存失败',
+                    error: insertError.message
+                });
+            }
+        }
+        
+        // 返回结果（不包含密码）
+        const userResponses = savedUsers.map(user => ({
+            id: user._id.toString(),
+            username: user.username,
+            displayName: user.displayName,
+            role: user.role,
+            createdAt: user.createdAt
+        }));
+        
+        res.status(201).json({
+            success: true,
+            message: `成功导入 ${savedUsers.length} 个管理员账户`,
+            importedCount: savedUsers.length,
+            failedCount: failedCount,
+            skippedCount: dataArray.length - transformedData.length - failedCount,
+            totalCount: dataArray.length,
+            users: userResponses,
+            errors: errors.length > 0 ? errors : undefined
+        });
+        
+    } catch (error) {
+        console.error('批量导入管理员失败:', error);
+        console.error('错误堆栈:', error.stack);
+        res.status(500).json({
+            success: false,
+            message: '批量导入管理员失败',
+            error: error.message
+        });
+    }
+};

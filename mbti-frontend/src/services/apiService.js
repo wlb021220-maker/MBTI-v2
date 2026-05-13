@@ -744,11 +744,11 @@ class ApiService {
     }
 
     /**
-     * 上传单个JSON文件并导入
+     * 导入测试结果JSON文件（批量）
      * @param {Object} jsonData - JSON数据
      * @returns {Promise}
      */
-    async uploadJsonFile(jsonData) {
+    async importTestResults(jsonData) {
         try {
             const token = localStorage.getItem('admin_token')
 
@@ -756,7 +756,7 @@ class ApiService {
                 throw new Error('未登录，请先登录')
             }
 
-            const response = await fetch(`${this.baseURL}${this.endpoints.uploadJson}`, {
+            const response = await fetch(`${this.baseURL}/admin/results/import`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -776,12 +776,58 @@ class ApiService {
             }
 
             if (!response.ok) {
-                throw new Error(result.message || '上传JSON文件失败')
+                throw new Error(result.message || '导入测试结果失败')
             }
 
             return result
         } catch (error) {
-            console.error('上传JSON文件时出错:', error)
+            console.error('导入测试结果时出错:', error)
+            throw error
+        }
+    }
+
+    /**
+     * 导入管理员JSON文件（批量）
+     * @param {Object} jsonData - JSON数据
+     * @returns {Promise}
+     */
+    async importAdminUsers(jsonData) {
+        try {
+            const token = localStorage.getItem('admin_token')
+
+            if (!token) {
+                throw new Error('未登录，请先登录')
+            }
+
+            const response = await fetch(`${this.baseURL}/admin/import-users`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(jsonData)
+            })
+
+            // 先读取文本，再尝试解析 JSON
+            const responseText = await response.text()
+            let result
+            try {
+                result = JSON.parse(responseText)
+            } catch (e) {
+                console.error('响应不是有效的JSON:', responseText)
+                throw new Error('服务器响应格式错误，请检查后端服务是否正常运行')
+            }
+
+            if (!response.ok) {
+                // 创建包含详细信息的错误对象
+                const error = new Error(result.message || '导入管理员失败')
+                error.details = result.details || null
+                throw error
+            }
+
+            return result
+        } catch (error) {
+            console.error('导入管理员时出错:', error)
             throw error
         }
     }

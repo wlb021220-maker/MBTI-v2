@@ -12,7 +12,7 @@ router.get('/admin/results/:id', auth, resultController.getResultDetail);
 router.get('/admin/statistics', auth, resultController.getStatistics);
 router.get('/admin/export/csv', auth, resultController.exportCSV);
 router.post('/admin/results/upload', auth, resultController.uploadTestData);
-router.post('/admin/results/upload-json', auth, resultController.uploadJsonFile);
+router.post('/admin/results/import', auth, resultController.uploadJsonFile);
 
 // 将所有批量操作路由放在单条操作路由之前，避免路由冲突
 router.delete('/admin/results/batch-delete', auth, resultController.batchDeleteResults);

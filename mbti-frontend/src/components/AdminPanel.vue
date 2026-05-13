@@ -70,8 +70,11 @@
                         <button @click="showChangePasswordModal = true" class="admin-btn">
                             <i class="fas fa-key"></i> 修改密码
                         </button>
-                        <button @click="showUploadJsonModal = true" class="admin-btn">
-                            <i class="fas fa-file-upload"></i> 上传JSON
+                        <button @click="showImportResultsModal = true" class="admin-btn">
+                            <i class="fas fa-file-import"></i> 导入测试结果
+                        </button>
+                        <button @click="showImportAdminsModal = true" class="admin-btn">
+                            <i class="fas fa-users-cog"></i> 导入管理员
                         </button>
                         <button @click="logout" class="logout-btn">
                             <i class="fas fa-sign-out-alt"></i> 退出
@@ -896,12 +899,12 @@
             </div>
         </div>
 
-        <!-- 上传JSON模态框 -->
-        <div v-if="showUploadJsonModal" class="modal-overlay" @click.self="closeAdminModals">
+        <!-- 导入测试结果模态框 -->
+        <div v-if="showImportResultsModal" class="modal-overlay" @click.self="closeAdminModals">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h3><i class="fas fa-file-upload"></i> 上传JSON文件</h3>
-                    <button @click="showUploadJsonModal = false" class="close-btn">
+                    <h3><i class="fas fa-file-import"></i> 导入测试结果</h3>
+                    <button @click="showImportResultsModal = false" class="close-btn">
                         <i class="fas fa-times"></i>
                     </button>
                 </div>
@@ -909,40 +912,99 @@
                 <div class="modal-body">
                     <div class="form-group">
                         <label class="form-label">
-                            <i class="fas fa-file-alt"></i> 选择JSON文件
+                            <i class="fas fa-file-alt"></i> 选择测试结果JSON文件
                         </label>
-                        <input type="file" accept=".json" @change="handleFileSelect" class="form-input file-input">
-                        <small class="form-hint">请选择从系统导出的JSON格式测试结果文件</small>
+                        <input type="file" accept=".json" @change="handleResultsFileSelect" class="form-input file-input">
+                        <small class="form-hint">请选择包含测试结果的JSON文件（支持批量导入）</small>
                     </div>
 
-                    <div v-if="selectedFile" class="file-preview">
+                    <div v-if="selectedResultsFile" class="file-preview">
                         <div class="file-info">
                             <i class="fas fa-file-json"></i>
-                            <span>{{ selectedFile.name }}</span>
-                            <span class="file-size">({{ formatFileSize(selectedFile.size) }})</span>
+                            <span>{{ selectedResultsFile.name }}</span>
+                            <span class="file-size">({{ formatFileSize(selectedResultsFile.size) }})</span>
                         </div>
-                        <button @click="selectedFile = null; jsonPreview = null" class="btn-secondary small-btn">
+                        <button @click="selectedResultsFile = null; resultsJsonPreview = null" class="btn-secondary small-btn">
                             <i class="fas fa-times"></i> 移除文件
                         </button>
                     </div>
 
-                    <div v-if="jsonPreview" class="json-preview">
+                    <div v-if="resultsJsonPreview" class="json-preview">
                         <h4><i class="fas fa-eye"></i> JSON预览</h4>
                         <div class="json-content">
-                            <pre>{{ JSON.stringify(jsonPreview, null, 2) }}</pre>
+                            <pre>{{ JSON.stringify(resultsJsonPreview, null, 2).substring(0, 1000) }}{{ JSON.stringify(resultsJsonPreview, null, 2).length > 1000 ? '...' : '' }}</pre>
                         </div>
+                        <small class="form-hint" v-if="Array.isArray(resultsJsonPreview)">
+                            检测到 {{ resultsJsonPreview.length }} 条数据
+                        </small>
                     </div>
                 </div>
 
                 <div class="modal-footer">
                     <div class="footer-actions">
-                        <button @click="showUploadJsonModal = false; selectedFile = null; jsonPreview = null" class="btn-secondary">
+                        <button @click="showImportResultsModal = false; selectedResultsFile = null; resultsJsonPreview = null" class="btn-secondary">
                             <i class="fas fa-times"></i> 取消
                         </button>
-                        <button @click="uploadJsonFile" class="btn-primary" 
-                            :disabled="uploadJsonLoading || !selectedFile || !jsonPreview">
-                            <i class="fas" :class="uploadJsonLoading ? 'fa-spinner fa-spin' : 'fa-upload'"></i>
-                            {{ uploadJsonLoading ? '上传中...' : '上传并导入' }}
+                        <button @click="importTestResults" class="btn-primary" 
+                            :disabled="importResultsLoading || !selectedResultsFile || !resultsJsonPreview">
+                            <i class="fas" :class="importResultsLoading ? 'fa-spinner fa-spin' : 'fa-upload'"></i>
+                            {{ importResultsLoading ? '导入中...' : '导入测试结果' }}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 导入管理员模态框 -->
+        <div v-if="showImportAdminsModal" class="modal-overlay" @click.self="closeAdminModals">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3><i class="fas fa-users-cog"></i> 导入管理员</h3>
+                    <button @click="showImportAdminsModal = false" class="close-btn">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label class="form-label">
+                            <i class="fas fa-file-alt"></i> 选择管理员JSON文件
+                        </label>
+                        <input type="file" accept=".json" @change="handleAdminsFileSelect" class="form-input file-input">
+                        <small class="form-hint">请选择包含管理员账户的JSON文件（支持批量导入）</small>
+                    </div>
+
+                    <div v-if="selectedAdminsFile" class="file-preview">
+                        <div class="file-info">
+                            <i class="fas fa-file-json"></i>
+                            <span>{{ selectedAdminsFile.name }}</span>
+                            <span class="file-size">({{ formatFileSize(selectedAdminsFile.size) }})</span>
+                        </div>
+                        <button @click="selectedAdminsFile = null; adminsJsonPreview = null" class="btn-secondary small-btn">
+                            <i class="fas fa-times"></i> 移除文件
+                        </button>
+                    </div>
+
+                    <div v-if="adminsJsonPreview" class="json-preview">
+                        <h4><i class="fas fa-eye"></i> JSON预览</h4>
+                        <div class="json-content">
+                            <pre>{{ JSON.stringify(adminsJsonPreview, null, 2).substring(0, 1000) }}{{ JSON.stringify(adminsJsonPreview, null, 2).length > 1000 ? '...' : '' }}</pre>
+                        </div>
+                        <small class="form-hint" v-if="Array.isArray(adminsJsonPreview)">
+                            检测到 {{ adminsJsonPreview.length }} 个管理员账户
+                        </small>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <div class="footer-actions">
+                        <button @click="showImportAdminsModal = false; selectedAdminsFile = null; adminsJsonPreview = null" class="btn-secondary">
+                            <i class="fas fa-times"></i> 取消
+                        </button>
+                        <button @click="importAdminUsers" class="btn-primary" 
+                            :disabled="importAdminsLoading || !selectedAdminsFile || !adminsJsonPreview">
+                            <i class="fas" :class="importAdminsLoading ? 'fa-spinner fa-spin' : 'fa-upload'"></i>
+                            {{ importAdminsLoading ? '导入中...' : '导入管理员' }}
                         </button>
                     </div>
                 </div>
@@ -1137,33 +1199,64 @@ const changePassword = async () => {
 const closeAdminModals = () => {
     showCreateAdminModal.value = false
     showChangePasswordModal.value = false
-    showUploadJsonModal.value = false
-    selectedFile.value = null
-    jsonPreview.value = null
+    showImportResultsModal.value = false
+    selectedResultsFile.value = null
+    resultsJsonPreview.value = null
+    showImportAdminsModal.value = false
+    selectedAdminsFile.value = null
+    adminsJsonPreview.value = null
 }
 
-// 上传JSON相关变量
-const showUploadJsonModal = ref(false)
-const selectedFile = ref(null)
-const jsonPreview = ref(null)
-const uploadJsonLoading = ref(false)
+// 导入测试结果相关变量
+const showImportResultsModal = ref(false)
+const selectedResultsFile = ref(null)
+const resultsJsonPreview = ref(null)
+const importResultsLoading = ref(false)
 
-// 处理文件选择
-const handleFileSelect = (event) => {
+// 导入管理员相关变量
+const showImportAdminsModal = ref(false)
+const selectedAdminsFile = ref(null)
+const adminsJsonPreview = ref(null)
+const importAdminsLoading = ref(false)
+
+// 处理测试结果文件选择
+const handleResultsFileSelect = (event) => {
     const file = event.target.files[0]
     if (file) {
-        selectedFile.value = file
+        selectedResultsFile.value = file
         
         // 读取文件内容并预览
         const reader = new FileReader()
         reader.onload = (e) => {
             try {
                 const data = JSON.parse(e.target.result)
-                jsonPreview.value = data
+                resultsJsonPreview.value = data
             } catch (error) {
                 showNotification('无效的JSON文件', 'error')
-                selectedFile.value = null
-                jsonPreview.value = null
+                selectedResultsFile.value = null
+                resultsJsonPreview.value = null
+            }
+        }
+        reader.readAsText(file)
+    }
+}
+
+// 处理管理员文件选择
+const handleAdminsFileSelect = (event) => {
+    const file = event.target.files[0]
+    if (file) {
+        selectedAdminsFile.value = file
+        
+        // 读取文件内容并预览
+        const reader = new FileReader()
+        reader.onload = (e) => {
+            try {
+                const data = JSON.parse(e.target.result)
+                adminsJsonPreview.value = data
+            } catch (error) {
+                showNotification('无效的JSON文件', 'error')
+                selectedAdminsFile.value = null
+                adminsJsonPreview.value = null
             }
         }
         reader.readAsText(file)
@@ -1177,26 +1270,55 @@ const formatFileSize = (bytes) => {
     return (bytes / (1024 * 1024)).toFixed(2) + ' MB'
 }
 
-// 上传JSON文件
-const uploadJsonFile = async () => {
+// 导入测试结果
+const importTestResults = async () => {
     try {
-        uploadJsonLoading.value = true
+        importResultsLoading.value = true
         
-        const response = await apiService.uploadJsonFile(jsonPreview.value)
+        const response = await apiService.importTestResults(resultsJsonPreview.value)
         
-        showNotification('JSON文件上传成功', 'success')
-        showUploadJsonModal.value = false
-        selectedFile.value = null
-        jsonPreview.value = null
+        showNotification(`成功导入 ${response.importedCount || 0} 条测试结果`, 'success')
+        showImportResultsModal.value = false
+        selectedResultsFile.value = null
+        resultsJsonPreview.value = null
         
         // 刷新测试结果列表
         await loadTestResults()
         
     } catch (error) {
-        console.error('上传JSON文件失败:', error)
-        showNotification('上传JSON文件失败: ' + error.message, 'error')
+        console.error('导入测试结果失败:', error)
+        showNotification('导入测试结果失败: ' + error.message, 'error')
     } finally {
-        uploadJsonLoading.value = false
+        importResultsLoading.value = false
+    }
+}
+
+// 导入管理员
+const importAdminUsers = async () => {
+    try {
+        importAdminsLoading.value = true
+        
+        console.log('准备导入管理员数据:', adminsJsonPreview.value)
+        console.log('数据类型:', typeof adminsJsonPreview.value)
+        console.log('是否为数组:', Array.isArray(adminsJsonPreview.value))
+        
+        const response = await apiService.importAdminUsers(adminsJsonPreview.value)
+        
+        showNotification(`成功导入 ${response.importedCount || 0} 个管理员账户`, 'success')
+        showImportAdminsModal.value = false
+        selectedAdminsFile.value = null
+        adminsJsonPreview.value = null
+        
+    } catch (error) {
+        console.error('导入管理员失败:', error)
+        // 显示更详细的错误信息
+        let errorMessage = error.message
+        if (error.details) {
+            console.log('错误详情:', error.details)
+        }
+        showNotification('导入管理员失败: ' + errorMessage, 'error')
+    } finally {
+        importAdminsLoading.value = false
     }
 }
 

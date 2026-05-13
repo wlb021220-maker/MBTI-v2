@@ -1,0 +1,18 @@
+[{
+  "username": "ally",
+  "password": "$2a$10$PZPb9zNrhmZNM4Yk1let/.ipbsOuFUcBaugN8J59VAWKkw7qlzhjq",
+  "role": "admin",
+  "displayName": "Ally"
+},
+{
+  "username": "allen",
+  "password": "$2a$10$Kj1bwoY6yer2AHRkPcDrnOQnZzfZ8FGs8T/sliN7GMZ/xXq9hDTYO",
+  "role": "admin",
+  "displayName": "Allen"
+},
+{
+  "username": "yuna",
+  "password": "yuna@zzy123",
+  "role": "admin",
+  "displayName": "Yuna"
+}]
